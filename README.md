@@ -42,7 +42,7 @@ What's Implemented
 
 JSx86 in its current shape is barely functionnal, although lots of things have already been implemented:
 
- - some x86 16bit instructions
+ - several x86 16bit opcodes, including string ops, mov, aritmetics,..
  - IOHandler that allows peripherals to register IO ports
  - basic interrupt handling
  - PIC & Timer controllers are very basic
