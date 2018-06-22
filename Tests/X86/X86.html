@@ -1,0 +1,248 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+  "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <title>Jasmine Standard MMU test - MMU.js</title>
+  <link rel="stylesheet" type="text/css" href="../jasmine/jasmine.css">
+  <script type="text/javascript" src="../jasmine/jasmine.js"></script>
+  <script type="text/javascript" src="../jasmine/jasmine-html.js"></script>
+  <script type="text/javascript" src="../../js/Lib/require.js"></script>
+
+    <script type="text/javascript">
+        require.config({
+            baseUrl: '../../js/',
+            paths: {
+                // the left side is the module ID,
+                // the right side is the path to
+                // the jQuery file, relative to baseUrl.
+                // Also, the path should NOT include
+                // the '.js' file extension. This example
+                // is using jQuery 1.9.0 located at
+                // js/lib/jquery-1.9.0.js, relative to
+                // the HTML page.
+                jquery:         'Lib/jquery-2.0.2.min',
+                app:            'app/jsx86',
+                X86:            'CPU/X86',
+                MMU:            'CPU/MMU',
+                JSDOS:          'Software/DOS',
+                BIOS:           'Software/BIOS',
+                Flags:          'CPU/Flags',
+                OpCodes:        'CPU/OpCodes',
+                MemViewer:      'Misc/MemViewer',
+                Utils:          'Misc/Utils',
+                BinFileReader:  'Misc/BinFileReader',
+                Graphics:       'Hardware/Graphics',
+                Timer:          'Hardware/Timer',
+                PIC:            'Hardware/PIC',
+                IOHandler:      'Hardware/IOHandler',
+                TextDisplay:    'Misc/TextDisplay'
+            }
+        });
+    </script>
+
+</head>
+<body>
+<script type="text/javascript">
+    require(['MMU', 'X86', 'Utils'], function(MMU, X86, Utils) {
+        var jasmineEnv = jasmine.getEnv();
+        jasmineEnv.updateInterval = 1000;
+    
+        var htmlReporter = new jasmine.HtmlReporter();
+    
+        jasmineEnv.addReporter(htmlReporter);
+    
+        jasmineEnv.specFilter = function(spec) {
+            return htmlReporter.specFilter(spec);
+        };
+    
+        var currentWindowOnload = window.onload;
+    
+        /*window.onload = function() {
+            if (currentWindowOnload) {
+                currentWindowOnload();
+            }
+            execJasmine();
+        };*/
+    
+        function execJasmine() {
+            jasmineEnv.execute();
+        }
+    
+    describe("X86 - Stack", function() {
+        it("push(0xABCD)", function() {
+            X86.reset();
+            MMU.init();
+            X86.ss = 0xB800;
+            X86.sp = 0x10;
+            X86.push(0xABCD);
+            expect(MMU.rws(0xB800, 0x0E)).toBe(0xABCD);
+            expect(X86.sp).toBe(0x10 - 2);
+            expect(X86.ss).toBe(0xB800);
+        });
+        
+        it("pop => 0xABCD", function() {
+            X86.reset();
+            MMU.init();
+            X86.ss = 0xB800;
+            X86.sp = 0x10;
+            X86.push(0xABCD);
+            expect(X86.pop()).toBe(0xABCD);
+            expect(X86.sp).toBe(0x10);
+            expect(X86.ss).toBe(0xB800);
+        });    
+    });
+        
+    describe("X86 - load (8)", function() {
+        it("loadbs(0xB800, 0x10, AH) => 0xAB", function() {
+            MMU.wbs(0xB800, 0x10, 0xAB);
+            X86.loadbs(0xB800, 0x10, 'ah');
+            expect(X86.ah()).toBe(0xAB);
+        });
+        
+        it("loadbs(0xB800, 0x10, AL) => 0xAB", function() {
+            MMU.wbs(0xB800, 0x10, 0xAB);
+            X86.loadbs(0xB800, 0x10, 'al');
+            expect(X86.al()).toBe(0xAB);
+        });
+        
+        it("loadbs(0xB800, 0x10, BH) => 0xAB", function() {
+            MMU.wbs(0xB800, 0x10, 0xAB);
+            X86.loadbs(0xB800, 0x10, 'bh');
+            expect(X86.bh()).toBe(0xAB);
+        });
+        
+        it("loadbs(0xB800, 0x10, BL) => 0xAB", function() {
+            MMU.wbs(0xB800, 0x10, 0xAB);
+            X86.loadbs(0xB800, 0x10, 'bl');
+            expect(X86.bl()).toBe(0xAB);
+        });
+        
+        it("loadbs(0xB800, 0x10, CH) => 0xAB", function() {
+            MMU.wbs(0xB800, 0x10, 0xAB);
+            X86.loadbs(0xB800, 0x10, 'ch');
+            expect(X86.ch()).toBe(0xAB);
+        });
+        
+        it("loadbs(0xB800, 0x10, CL) => 0xAB", function() {
+            MMU.wbs(0xB800, 0x10, 0xAB);
+            X86.loadbs(0xB800, 0x10, 'cl');
+            expect(X86.cl()).toBe(0xAB);
+        });
+        
+        it("loadbs(0xB800, 0x10, DH) => 0xAB", function() {
+            MMU.wbs(0xB800, 0x10, 0xAB);
+            X86.loadbs(0xB800, 0x10, 'dh');
+            expect(X86.dh()).toBe(0xAB);
+        });
+        
+        it("loadbs(0xB800, 0x10, DL) => 0xAB", function() {
+            MMU.wbs(0xB800, 0x10, 0xAB);
+            X86.loadbs(0xB800, 0x10, 'dl');
+            expect(X86.dl()).toBe(0xAB);
+        });
+    });
+    
+    describe("X86 - load (16)", function() {
+        it("loadws(0xB800, 0x10, AX) => 0xCDAB", function() {
+            MMU.wws(0xB800, 0x10, 0xABCD);
+            X86.loadws(0xB800, 0x10, 'ax');
+            expect(X86.ax).toBe(0xCDAB);
+        });
+        
+        it("loadws(0xB800, 0x10, BX) => 0xCDAB", function() {
+            MMU.wws(0xB800, 0x10, 0xABCD);
+            X86.loadws(0xB800, 0x10, 'bx');
+            expect(X86.bx).toBe(0xCDAB);
+        });
+        
+        it("loadws(0xB800, 0x10, CX) => 0xCDAB", function() {
+            MMU.wws(0xB800, 0x10, 0xABCD);
+            X86.loadws(0xB800, 0x10, 'cx');
+            expect(X86.cx).toBe(0xCDAB);
+        });
+        
+        it("loadws(0xB800, 0x10, DX) => 0xCDAB", function() {
+            MMU.wws(0xB800, 0x10, 0xABCD);
+            X86.loadws(0xB800, 0x10, 'dx');
+            expect(X86.dx).toBe(0xCDAB);
+        });
+        
+        it("loadws(0xB800, 0x10, SI) => 0xCDAB", function() {
+            MMU.wws(0xB800, 0x10, 0xABCD);
+            X86.loadws(0xB800, 0x10, 'si');
+            expect(X86.si).toBe(0xCDAB);
+        });
+        
+        it("loadws(0xB800, 0x10, DI) => 0xCDAB", function() {
+            MMU.wws(0xB800, 0x10, 0xABCD);
+            X86.loadws(0xB800, 0x10, 'di');
+            expect(X86.di).toBe(0xCDAB);
+        });
+        
+        it("loadws(0xB800, 0x10, SP) => 0xCDAB", function() {
+            MMU.wws(0xB800, 0x10, 0xABCD);
+            X86.loadws(0xB800, 0x10, 'sp');
+            expect(X86.sp).toBe(0xCDAB);
+        });
+        
+        it("loadws(0xB800, 0x10, BP) => 0xCDAB", function() {
+            MMU.wws(0xB800, 0x10, 0xABCD);
+            X86.loadws(0xB800, 0x10, 'bp');
+            expect(X86.bp).toBe(0xCDAB);
+        });
+        
+        it("loadws(0xB800, 0x10, CS) => 0xCDAB", function() {
+            MMU.wws(0xB800, 0x10, 0xABCD);
+            X86.loadws(0xB800, 0x10, 'cs');
+            expect(X86.cs).toBe(0xCDAB);
+        });
+        
+        it("loadws(0xB800, 0x10, DS) => 0xCDAB", function() {
+            MMU.wws(0xB800, 0x10, 0xABCD);
+            X86.loadws(0xB800, 0x10, 'ds');
+            expect(X86.ds).toBe(0xCDAB);
+        });
+        
+        it("loadws(0xB800, 0x10, ES) => 0xCDAB", function() {
+            MMU.wws(0xB800, 0x10, 0xABCD);
+            X86.loadws(0xB800, 0x10, 'es');
+            expect(X86.es).toBe(0xCDAB);
+        });
+        
+        it("loadws(0xB800, 0x10, SS) => 0xCDAB", function() {
+            MMU.wws(0xB800, 0x10, 0xABCD);
+            X86.loadws(0xB800, 0x10, 'ss');
+            expect(X86.ss).toBe(0xCDAB);
+        });
+        
+        it("loadws(0xB800, 0x10, IP) => 0xCDAB", function() {
+            MMU.wws(0xB800, 0x10, 0xABCD);
+            X86.loadws(0xB800, 0x10, 'ip');
+            expect(X86.ip).toBe(0xCDAB);
+        });    
+    });
+    
+    describe("X86 - getregbs", function() {
+        it("getregbs('ah', 'bh')", function() {
+            MMU.wbs(0xB800, 0x10, 0xAB);
+            X86.ax = 0xB800;
+            X86.bx= 0x10;
+            expect(X86.getregbs('ax', 'bx')).toBe(0xAB);
+        });
+    });
+    
+    describe("X86 - getregws", function() {
+        it("getregws('ax', 'bx')", function() {
+            MMU.wws(0xB800, 0x10, 0xABCD);
+            X86.ax = 0xB800;
+            X86.bx= 0x10;
+            expect(X86.getregws('ax', 'bx')).toBe(0xCDAB);
+        });
+    });
+        
+        
+    execJasmine();
+});
+</script>
+</body>
+</html>

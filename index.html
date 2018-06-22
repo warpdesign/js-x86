@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+	<meta charset=utf-8 />
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+    
+	<title>JSx86</title>
+
+    <script data-main="app" type="text/javascript" src="js/Lib/require.js"></script>
+    
+    <script type="text/javascript">
+        require.config({
+            baseUrl: 'js/',
+            paths: {
+                jquery:         'Lib/jquery-2.0.2.min',
+                app:            'app/jsx86',
+                X86:            'CPU/X86',
+                MMU:            'CPU/MMU',
+                JSDOS:          'Software/DOS',
+                BIOS:           'Software/BIOS',
+                Flags:          'CPU/Flags',
+				OpCodes:        'CPU/OpCodes',
+				IntServer:      'CPU/IntServer',
+                MemViewer:      'Misc/MemViewer',
+                Utils:          'Misc/Utils',
+				BinFileReader:  'Misc/BinFileReader',
+				DMA:      		'Hardware/DMA',
+                Graphics:       'Hardware/Graphics',
+                Timer:          'Hardware/Timer',
+                PIC:            'Hardware/PIC',
+                IOHandler:      'Hardware/IOHandler',
+                TextDisplay:    'Misc/TextDisplay'
+            }
+        });    
+    </script>
+
+	<style type="text/css">
+		.dos{
+			font-family: Lucida Console, Lucida, Courier New, Courier;
+			background-color: Black;
+			color: White;
+			display:block;
+			float:left;
+			padding: 0;
+			margin: 10px;
+			font-size:14px;
+		}
+
+		#debugger{
+			display:none;
+			float:left;
+			width:300px;
+			margin-left:30px;
+		}
+
+		#viewer{
+			font-family:courier;
+			font-size:12px;
+			float:left;
+			width:500px;
+			height:162px;
+			margin-left:30px;
+		}
+
+		#viewer .lines, #viewer .view, #viewer .ascii{
+			float:left;
+		}
+
+		#viewer .view{
+			width:287px;
+		}
+
+		#viewer .ascii{
+			width: 156px;
+			margin-left: 10px;
+		}
+
+		#viewer .lines{
+			width:36px;
+			padding:0 5px;
+		}
+
+		#viewer .lines span{
+			display:block;
+		}
+
+		#viewer .view span{
+			padding:0 2px;
+		}
+
+		#controls{
+			float:left;
+			width:500px;
+			margin-left:30px;
+			padding:15px 0;
+		}
+
+	</style>
+
+</head>
+<body>
+	<div id="display" class="dos"></div>
+	<div id="cpu" class="dos"></div>
+	<form id="controls">
+		File to run: <input type="text" name="executable" id="executable" value="dos_examples/test.com" /><input type="radio" name="exeMode" id="normal" value="0" checked="checked" /><label for="normal">Normal</label>&nbsp;&nbsp;&nbsp;<input type="radio" name="exeMode" id="step" value="1" checked="checked" /><label for="step">Step By Step</label>&nbsp;&nbsp;&nbsp;
+		<button id="go" type="button">GO !</button><br /><br /><button id="stop" type="button">STOP</button>&nbsp;&nbsp;&nbsp;
+		<button id="reset" type="button">RESET</button>
+	</form>
+	<form id="debugger">
+		<label for="seg">Segment:</label>&nbsp;<input type="text" size="4" name="seg" id="seg" />&nbsp;&nbsp;
+		<label for="offset">Offset:</label>&nbsp;<input type="text" size="4" name="offset" id="offset" />&nbsp;&gt;&gt;&nbsp;<strong id="val1"></strong><br />
+		<label for="addr">Abs Address:</label>&nbsp;<input type="text" size="4" name="addr" id="addr" />&nbsp;&nbsp;
+		&nbsp;&gt;&gt;&nbsp;<strong id="val2"></strong><br />
+	</form>
+	<div id="viewer"></div>
+</body>
+</html>
