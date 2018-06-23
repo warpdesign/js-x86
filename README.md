@@ -35,7 +35,7 @@ The `dos_examples` directory contains a few sample *.com* DOS apps.
 Tests
 -----
 
-Some tests have been written using Karma & Jasmine and can be started by opening the `Tests/X86/X86.html page.
+Some tests have been written using Karma & Jasmine and can be started by opening the `Tests/X86/X86.html` page.
 
 What's Implemented
 ------------------
