@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "$src/*": ["src/*"]
+    },
+    "outDir": "./dist/",
+    "sourceMap": true,
+    "noImplicitAny": true,
+    "module": "commonjs",
+    "target": "es5",
+    "jsx": "react",
+    "removeComments": true,
+    "lib": ["es2017", "dom"],
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "types": ["webpack", "webpack-env"]
+  },
+  "include": ["./src/**/*"],
+  "exclude": ["**/*.spec.ts", "**/*.test.ts"]
+}
