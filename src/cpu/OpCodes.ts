@@ -5,6 +5,7 @@ aaa, aad, aam, aas, adc, add, and, call, cbw, clc, cld, cmc, cmp, cmpsb, cmpsw, 
 */
 
 import { X86 } from './X86';
+import { lastOp } from './Flags';
 
 const OP_INCW = 1,
     OP_ADDW = 2,
@@ -28,11 +29,11 @@ const OP_INCW = 1,
 
 // const INTS = X86.INTS;
 
-export const OpCodes = {
+export const OpCodesTable = {
     // ADD r/m16, r16
-    0x01: function (override) {
-        const seg = override ? override : 'ds',
-            reg = X86.modrm(1);
+    0x01: function (override = 'ds') {
+        // const seg = override ? override : 'ds',
+        const reg = X86.modrm(1);
         // console.log(reg);
         // DEBUG console.log('called 01 with ' + seg);
 
@@ -46,19 +47,19 @@ export const OpCodes = {
             // DEBUG console.log('reg.mod == 0 !');
 
             // set x + y
-            lf.var2 = X86[reg.regName];
-            // DEBUG console.log('reg op2: ' + reg.regName + ' => ' + lf.var2.toHex());
+            lastOp.var2 = X86[reg.regName];
+            // DEBUG console.log('reg op2: ' + reg.regName + ' => ' + lastOp.var2.toHex());
             // DEBUG console.log('src addr = ' + off.toHex() + ' => ' + srcAddr.toHex());
 
             // get src addr
-            lf.var1 = MMU.rw(srcAddr);
-            // console.log('var1 = ' + lf.var1.toHex());
+            lastOp.var1 = MMU.rw(srcAddr);
+            // console.log('var1 = ' + lastOp.var1.toHex());
             // get result
-            lf.res = X86.addwval(lf.var1, lf.var2);
-            // console.log('result = ' + lf.res.toHex());
+            lastOp.res = X86.addwval(lastOp.var1, lastOp.var2);
+            // console.log('result = ' + lastOp.res.toHex());
 
             // write it back to memory
-            MMU.ww(srcAddr, lf.res, true);
+            MMU.ww(srcAddr, lastOp.res, true);
 
             if (off) X86.ip += 4;
             else X86.ip += 2;
@@ -75,20 +76,20 @@ export const OpCodes = {
         if (reg.mod == 0) {
             // abs address ?
             if (reg.rm == 6) {
-                lf.var1 = X86[reg.regName];
-                lf.var2 = MMU.rws(X86.ds, X86.ipnextw(2));
+                lastOp.var1 = X86[reg.regName];
+                lastOp.var2 = MMU.rws(X86.ds, X86.ipnextw(2));
                 // *** X86[reg.regName] += MMU.rws(X86.ds, X86.ipnextw(2));
-                lf.res = X86.addw(reg.regName, MMU.rws(X86.ds, X86.ipnextw(2)));
+                lastOp.res = X86.addw(reg.regName, MMU.rws(X86.ds, X86.ipnextw(2)));
                 X86.ip += 4;
             } // displacement
             else {
                 throw 'Unsupported rm displacement for 0x03 !';
             }
         } else if (reg.mod == 3) {
-            lf.var1 = X86[reg.regName];
-            lf.var2 = X86[reg.regName2];
+            lastOp.var1 = X86[reg.regName];
+            lastOp.var2 = X86[reg.regName2];
             // *** X86[reg.regName] += MMU.rws(X86.ds, X86.ipnextw(2));
-            lf.res = X86.addw(reg.regName, lf.var2);
+            lastOp.res = X86.addw(reg.regName, lastOp.var2);
             X86.ip += 2;
         } else throw 'Unsupported mod for 0x03 Opcode: ' + reg.mod;
 
@@ -108,9 +109,9 @@ export const OpCodes = {
 
     // ADD AX, <im16>
     0x05: function () {
-        lf.var1 = X86.ax;
-        lf.var2 = MMU.rws(X86.cs, X86.ip + 1);
-        lf.res = X86.addw('ax', MMU.rws(X86.cs, X86.ip + 1));
+        lastOp.var1 = X86.ax;
+        lastOp.var2 = MMU.rws(X86.cs, X86.ip + 1);
+        lastOp.res = X86.addw('ax', MMU.rws(X86.cs, X86.ip + 1));
 
         // console.log('adding: ' + MMU.rws(X86.cs, X86.ip + 1));
         Flags.setFlagsFromOp(OP_ADDW);
@@ -184,9 +185,9 @@ export const OpCodes = {
 
         switch (reg.mod) {
             case 3:
-                lf.var1 = X86[X86.regw(reg.rm)];
-                lf.var2 = X86[reg.regName];
-                lf.res = X86.subw(X86.regw(reg.rm), lf.var2);
+                lastOp.var1 = X86[X86.regw(reg.rm)];
+                lastOp.var2 = X86[reg.regName];
+                lastOp.res = X86.subw(X86.regw(reg.rm), lastOp.var2);
                 Flags.setFlagsFromOp(OP_SUBW);
                 X86.ip += 2;
                 break;
@@ -204,9 +205,9 @@ export const OpCodes = {
             case 3:
                 // console.log(X86.regw(reg.rm));
                 // console.log(reg.regName);
-                lf.var2 = X86[X86.regw(reg.rm)];
-                lf.var1 = X86[reg.regName];
-                lf.res = X86.subw(reg.regName, lf.var2);
+                lastOp.var2 = X86[X86.regw(reg.rm)];
+                lastOp.var1 = X86[reg.regName];
+                lastOp.res = X86.subw(reg.regName, lastOp.var2);
                 Flags.setFlagsFromOp(OP_SUBW);
                 X86.ip += 2;
                 break;
@@ -218,10 +219,10 @@ export const OpCodes = {
 
     // SUB ax, imm16
     0x2d: function () {
-        lf.var1 = X86.ax;
-        lf.var2 = X86.ipnextw(1);
-        console.log(lf.var2.toHex());
-        lf.res = X86.subw('ax', lf.var2);
+        lastOp.var1 = X86.ax;
+        lastOp.var2 = X86.ipnextw(1);
+        console.log(lastOp.var2.toHex());
+        lastOp.res = X86.subw('ax', lastOp.var2);
         Flags.setFlagsFromOp(OP_SUBW);
         X86.ip += 3;
     },
@@ -243,7 +244,7 @@ export const OpCodes = {
         const mod = X86.modrm(1);
 
         X86[mod.regName2] ^= X86[mod.regName];
-        lf.res = X86[mod.regName2];
+        lastOp.res = X86[mod.regName2];
         Flags.setFlagsFromOp(OP_XORW);
 
         /*
@@ -303,7 +304,7 @@ export const OpCodes = {
         if (mod.mod == 3) {
             const reg1 = X86[mod.regName];
             reg1(reg1() ^ X86[mod.regName2]());
-            lf.res = reg1();
+            lastOp.res = reg1();
             Flags.setFlagsFromOp(OP_XORB);
             X86.ip += 2;
         } else throw 'Unhandled MOD for opcode 0x32: ' + mod.mod.toHex();
@@ -315,7 +316,7 @@ export const OpCodes = {
 
         if (mod.mod == 3) {
             X86[mod.regName] ^= X86[mod.regName2];
-            lf.res = X86[mod.regName];
+            lastOp.res = X86[mod.regName];
             Flags.setFlagsFromOp(OP_XORW);
             X86.ip += 2;
         } else throw 'Unhandled MOD for opcode 0x33: ' + mod.mod.toHex();
@@ -335,10 +336,10 @@ export const OpCodes = {
 
     // CMP AL, imm8
     0x3c: function () {
-        lf.var1 = X86.al();
-        lf.var2 = X86.ipnext(1);
+        lastOp.var1 = X86.al();
+        lastOp.var2 = X86.ipnext(1);
         // TODO: sign-extended ?! FIX ME !!
-        lf.res = lf.var1 - lf.var2;
+        lastOp.res = lastOp.var1 - lastOp.var2;
         Flags.setFlagsFromOp(OP_CMPB);
         X86.ip += 2;
     },
@@ -346,48 +347,48 @@ export const OpCodes = {
     // INC BP
     0x45: function () {
         // is that ok ??
-        lf.var1 = X86.bp;
-        lf.var2 = 1;
+        lastOp.var1 = X86.bp;
+        lastOp.var2 = 1;
 
         X86.incw('bp');
         X86.ip++;
 
-        lf.res = X86.bp;
+        lastOp.res = X86.bp;
         Flags.setFlagsFromOp(OP_INCW);
     },
 
     // INC SI
     0x46: function () {
         // is that ok ??
-        lf.var1 = X86.si;
-        lf.var2 = 1;
+        lastOp.var1 = X86.si;
+        lastOp.var2 = 1;
 
         X86.incw('si');
         X86.ip++;
 
-        lf.res = X86.si;
+        lastOp.res = X86.si;
         Flags.setFlagsFromOp(OP_INCW);
     },
 
     // INC DI
     0x47: function () {
         // is that ok ??
-        lf.var1 = X86.di;
-        lf.var2 = 1;
+        lastOp.var1 = X86.di;
+        lastOp.var2 = 1;
 
         X86.incw('di');
         X86.ip++;
 
-        lf.res = X86.di;
+        lastOp.res = X86.di;
         Flags.setFlagsFromOp(OP_INCW);
     },
 
     // DEC AX
     0x48: function () {
-        lf.var1 = X86.ax;
+        lastOp.var1 = X86.ax;
         X86.decw('ax', 1);
 
-        lf.res = X86.ax;
+        lastOp.res = X86.ax;
         Flags.setFlagsFromOp(OP_DECW);
 
         X86.ip++;
@@ -396,10 +397,10 @@ export const OpCodes = {
     // dec SI
     // TODO: handle overflow !!! :)
     0x4e: function () {
-        lf.var1 = X86.si;
+        lastOp.var1 = X86.si;
         X86.decw('si', 1);
 
-        lf.res = X86.si;
+        lastOp.res = X86.si;
         Flags.setFlagsFromOp(OP_DECW);
 
         X86.ip++;
@@ -407,10 +408,10 @@ export const OpCodes = {
 
     // dec DI
     0x4f: function () {
-        lf.var1 = X86.di;
+        lastOp.var1 = X86.di;
         X86.decw('di', 1);
 
-        lf.res = X86.di;
+        lastOp.res = X86.di;
         Flags.setFlagsFromOp(OP_DECW);
 
         X86.ip++;
@@ -526,18 +527,18 @@ export const OpCodes = {
 
         if (reg.reg == 0) {
             // ADD r/m16, imm16
-            lf.var1 = X86[reg.regName2];
-            lf.var2 = X86.ipnextw(2);
-            lf.res = X86.addwval(lf.var1, lf.var2);
+            lastOp.var1 = X86[reg.regName2];
+            lastOp.var2 = X86.ipnextw(2);
+            lastOp.res = X86.addwval(lastOp.var1, lastOp.var2);
             Flags.setFlagsFromOp(OP_ADDW);
-            X86[reg.regName2] = lf.res;
+            X86[reg.regName2] = lastOp.res;
             X86.ip += 4;
             // throw('unimplemented mod reg 0 for opcode 0x81 !' + reg.regName2);
         } else if (reg.reg == 7) {
             // CMP r/m16, imm16
-            lf.var1 = X86[reg.regName2];
-            lf.var2 = X86.ipnextw(2);
-            lf.res = lf.var1 - lf.var2;
+            lastOp.var1 = X86[reg.regName2];
+            lastOp.var2 = X86.ipnextw(2);
+            lastOp.res = lastOp.var1 - lastOp.var2;
             Flags.setFlagsFromOp(OP_CMPW);
             X86.ip += 4;
         }
@@ -550,25 +551,25 @@ export const OpCodes = {
         const reg = X86.modrm(1);
         // if (reg.mod == 3)
         if (reg.reg == 1) {
-            lf.var1 = X86[X86.regw(reg.rm)];
-            lf.res = X86[X86.regw(reg.rm)] = lf.var1 | (0xff00 | X86.ipnext(2));
-            // console.log(lf.var1.toHex() + ' | ' + (0xFF00 | X86.ipnext(2)).toHex());
+            lastOp.var1 = X86[X86.regw(reg.rm)];
+            lastOp.res = X86[X86.regw(reg.rm)] = lastOp.var1 | (0xff00 | X86.ipnext(2));
+            // console.log(lastOp.var1.toHex() + ' | ' + (0xFF00 | X86.ipnext(2)).toHex());
             Flags.setFlagsFromOp(OP_ORW);
             X86.ip += 3;
         } else if (reg.reg == 7) {
             // CMP r/m16,imm8
-            lf.var1 = X86[reg.regName];
-            lf.var2 = 0xff00 | X86.ipnext(2); // sign extended ?!
-            lf.res = lf.var1 - lf.var2;
+            lastOp.var1 = X86[reg.regName];
+            lastOp.var2 = 0xff00 | X86.ipnext(2); // sign extended ?!
+            lastOp.res = lastOp.var1 - lastOp.var2;
             Flags.setFlagsFromOp(OP_CMPW);
             X86.ip += 3;
         } else if (reg.reg == 4) {
             // AND
             console.log(reg);
-            lf.var1 = X86[reg.regName];
-            lf.var2 = 0xff00 | X86.ipnext(2);
-            console.log(lf.var2.toHex());
-            X86[reg.regName] = Ops.andw(lf.var1, lf.var2);
+            lastOp.var1 = X86[reg.regName];
+            lastOp.var2 = 0xff00 | X86.ipnext(2);
+            console.log(lastOp.var2.toHex());
+            X86[reg.regName] = Ops.andw(lastOp.var1, lastOp.var2);
             Flags.setFlagsFromOp(OP_ANDW);
             X86.ip += 3;
         } else throw 'Unhandled so for 0x83 opcode !';
@@ -902,8 +903,8 @@ export const OpCodes = {
         debugger;
         if (reg.reg == 0) {
             // MOV reg, imm16
-            lf.var2 = X86.ipnextw(2);
-            X86[reg.regName] = lf.var2;
+            lastOp.var2 = X86.ipnextw(2);
+            X86[reg.regName] = lastOp.var2;
             X86.ip += 4;
         }
     },
@@ -953,31 +954,31 @@ export const OpCodes = {
         // TODO: do we need to set the flags in case src is 0 ?!!
         if (reg.reg == 5) {
             // SHR dest, CL
-            if ((lf.var2 = X86.cl())) {
-                lf.var1 = X86[dest];
-                lf.res = X86[dest] = (X86[dest] >> lf.var2) & 0xffff;
+            if ((lastOp.var2 = X86.cl())) {
+                lastOp.var1 = X86[dest];
+                lastOp.res = X86[dest] = (X86[dest] >> lastOp.var2) & 0xffff;
                 Flags.setFlagsFromOp(OP_SHRW);
             }
             X86.ip += 2;
         } else if (reg.reg == 7) {
             // SAR dest, CL
-            if ((lf.var2 = X86.cl())) {
-                lf.var1 = X86[dest];
-                if (lf.var2 > 16) lf.var2 > 16;
+            if ((lastOp.var2 = X86.cl())) {
+                lastOp.var1 = X86[dest];
+                if (lastOp.var2 > 16) lastOp.var2 > 16;
 
-                if (lf.var1 & 0x8000) {
-                    lf.res = X86[dest] = (lf_var1 >> lf.var2) | (0xffff << (16 - lf.var2));
-                } else lf.res = X86[dest] = lf.var1 >> lf.var2;
+                if (lastOp.var1 & 0x8000) {
+                    lastOp.res = X86[dest] = (lf_var1 >> lastOp.var2) | (0xffff << (16 - lastOp.var2));
+                } else lastOp.res = X86[dest] = lastOp.var1 >> lastOp.var2;
 
                 Flags.setFlagsFromOp(OP_SARW);
             }
             X86.ip += 2;
         } else if (reg.reg == 4) {
             // SHL | SAL
-            if ((lf.var2 = X86.cl())) {
-                lf.var1 = X86[dest];
-                lf.res = X86[dest] = (lf.var1 << lf.var2) & 0x0000ffff;
-                // X86[dest] = (lf.res < 0x10000) ? lf.res : 0;
+            if ((lastOp.var2 = X86.cl())) {
+                lastOp.var1 = X86[dest];
+                lastOp.res = X86[dest] = (lastOp.var1 << lastOp.var2) & 0x0000ffff;
+                // X86[dest] = (lastOp.res < 0x10000) ? lastOp.res : 0;
 
                 Flags.setFlagsFromOp(OP_SHLW);
             }
@@ -1168,20 +1169,20 @@ export const OpCodes = {
                 throw 'what the ??';
                 break;
         }
-        // lf.var1 = X86.ax;
-        // lf.res = X86.ax = (0xFF & ~X86.ax);
+        // lastOp.var1 = X86.ax;
+        // lastOp.res = X86.ax = (0xFF & ~X86.ax);
         // throw('0xF6 opcode not ready yet ! :)');
     },
 
     // NEG r/m16, NOT r/m16
     0xf7: function () {
         const reg = X86.modrm(1);
-        lf.var1 = X86[X86.regw(reg.rm)];
+        lastOp.var1 = X86[X86.regw(reg.rm)];
 
         if (reg.reg == 2) {
-            X86[X86.regw(reg.rm)] = 0xffff & ~lf.var1;
+            X86[X86.regw(reg.rm)] = 0xffff & ~lastOp.var1;
         } else if (reg.reg == 3) {
-            lf.res = X86[X86.regw(reg.rm)] = 0xffff & (0 - lf.var1);
+            lastOp.res = X86[X86.regw(reg.rm)] = 0xffff & (0 - lastOp.var1);
             Flags.setFlagsFromOp(OP_NEGW);
         } else throw 'not implemented rm for opcode 0xF7 !';
 
@@ -1258,13 +1259,13 @@ const OpCodes2 = {
 
 const Ops = {
     andb: function (x1, x2) {
-        lf.res = x1 & x2;
-        return lf.res;
+        lastOp.res = x1 & x2;
+        return lastOp.res;
     },
 
     andw: function (x1, x2) {
-        lf.Res = x1 & x2;
-        return lf.res;
+        lastOp.Res = x1 & x2;
+        return lastOp.res;
     },
 
     moveW: function (destReg) {
@@ -1285,12 +1286,12 @@ const Ops = {
     },
 
     scasb: function () {
-        lf.var1 = X86.al();
-        lf.var2 = MMU.rbs(X86.es, X86.di);
-        lf.res = lf.var1 - lf.var2; // (what happens ?!)
+        lastOp.var1 = X86.al();
+        lastOp.var2 = MMU.rbs(X86.es, X86.di);
+        lastOp.res = lastOp.var1 - lastOp.var2; // (what happens ?!)
         /*
-        console.log(lf.var1.toHex() + ' vs ' + lf.var2.toHex());
-        console.log('res => ' + lf.res.toHex());
+        console.log(lastOp.var1.toHex() + ' vs ' + lastOp.var2.toHex());
+        console.log('res => ' + lastOp.res.toHex());
         */
         X86.updi();
         Flags.setFlagsFromOp(OP_CMPB);
@@ -1366,3 +1367,23 @@ const Ops = {
         */
     },
 };
+
+export const OP_INCW = 1,
+    OP_ADDW = 2,
+    OP_DECW = 3,
+    OP_XORW = 4,
+    OP_SUBW = 5,
+    OP_CMPW = 6,
+    OP_NEGW = 7,
+    OP_NEGB = 8,
+    OP_SUBB = 9,
+    OP_CMPB = 10,
+    OP_SHRW = 11,
+    OP_SALW = 12,
+    OP_SHLW = 12,
+    OP_SARW = 13,
+    OP_ORW = 14,
+    OP_ANDB = 15,
+    OP_CMPW = 16,
+    OP_ANDW = 17,
+    OP_XORB = 18;

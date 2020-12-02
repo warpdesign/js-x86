@@ -8,7 +8,7 @@
   F0000-FFFFF  BIOS ROM
 
 */
-import { OpCodes } from './OpCodes';
+import { OpCodesTable } from './OpCodes';
 
 // define(['MMU', 'Graphics', 'TextDisplay', 'Utils'], function(MMU, Graphics, TextDisplay, Utils) {
 export const X86 = {
