@@ -9,27 +9,34 @@
 
 */
 import { OpCodesTable } from './OpCodes';
+import { MMU } from './MMU'
+
+export type REG_NAME = 'ax'|'al'|'ah'|'bx'|'bh'|'bl'|'cx'|'ch'|'cl'|'dx'|'dh'|'dl'|'si'|'di'|'bp'|'sp'|'ds'|'cs'|'ss'|'ip';
+export type REG_NAME_16 = 'ax'|'bx'|'cx'|'dx'|'sp'|'bp'|'si'|'di';
+export type REG_NAME_8 = 'ah'|'al'|'bh'|'bl'|'ch'|'cl'|'dh'|'dl';
+export type REG_NAME_S = 'es'|'cs'|'ss'|'ds';
+
+const FLAG_CF = 0x0001,
+FLAG_PF = 0x0004,
+FLAG_AF = 0x0010,
+FLAG_ZF = 0x0040,
+FLAG_SF = 0x0080,
+FLAG_OF = 0x0800,
+FLAG_TF = 0x0100,
+FLAG_IF = 0x0200,
+FLAG_DF = 0x0400,
+FLAG_IOPL = 0x3000,
+FLAG_NT = 0x4000,
+ST_STOPPED = 0,
+ST_RUNNING = 1,
+ST_PAUSED = 2,
+MODE_NORMAL = 0,
+MODE_STEP = 1,
+MODE_STEP_OVER = 2;
 
 // define(['MMU', 'Graphics', 'TextDisplay', 'Utils'], function(MMU, Graphics, TextDisplay, Utils) {
 export const X86 = {
     // Flags masks
-    FLAG_CF: 0x0001,
-    FLAG_PF: 0x0004,
-    FLAG_AF: 0x0010,
-    FLAG_ZF: 0x0040,
-    FLAG_SF: 0x0080,
-    FLAG_OF: 0x0800,
-    FLAG_TF: 0x0100,
-    FLAG_IF: 0x0200,
-    FLAG_DF: 0x0400,
-    FLAG_IOPL: 0x3000,
-    FLAG_NT: 0x4000,
-    ST_STOPPED: 0,
-    ST_RUNNING: 1,
-    ST_PAUSED: 2,
-    MODE_NORMAL: 0,
-    MODE_STEP: 1,
-    MODE_STEP_OVER: 2,
     ax: 0,
     bx: 0,
     cx: 0,
@@ -45,58 +52,64 @@ export const X86 = {
     cs: 0, // code segment
     ip: 0, // instruction pointer
 
-    ah: function (val) {
-        if (arguments.length) {
-            this.ax &= 0x00ff;
-            this.ax |= val << 8;
-        } else return this.ax >> 8;
+    set ah(val) {
+        this.ax &= 0x00ff;
+        this.ax |= val << 8;
     },
-    al: function (val) {
-        if (arguments.length) {
-            this.ax &= 0xff00;
-            this.ax += val;
-        } else return this.ax & 0x00ff;
+    get ah() {
+        return this.ax >> 8;
     },
-    bh: function (val) {
-        if (arguments.length) {
-            this.bx &= 0x00ff;
-            this.bx |= val << 8;
-        } else return this.bx >> 8;
+    set al(val) {
+        this.ax &= 0xff00;
+        this.ax += val;
     },
-    bl: function (val) {
-        if (arguments.length) {
-            this.bx &= 0xff00;
-            this.bx += val;
-        } else return this.bx & 0x00ff;
+    get al() {
+        return this.ax & 0x00ff;
     },
-    ch: function (val) {
-        if (arguments.length) {
-            this.cx &= 0x00ff;
-            this.cx |= val << 8;
-        } else return this.cx >> 8;
+    set bh(val) {
+        this.bx &= 0x00ff;
+        this.bx |= val << 8;
     },
-    cl: function (val) {
-        if (arguments.length) {
-            this.cx &= 0xff00;
-            this.cx += val;
-        } else return this.cx & 0x00ff;
+    get bh() {
+        return this.bx >> 8;        
     },
-    dh: function (val) {
-        if (arguments.length) {
-            this.dx &= 0x00ff;
-            this.dx |= val << 8;
-        } else return this.dx >> 8;
+    set bl(val) {
+        this.bx &= 0xff00;
+        this.bx += val;
     },
-    dl: function (val) {
-        if (arguments.length) {
-            this.dx &= 0xff00;
-            this.dx += val;
-        } else {
-            return this.dx & 0x00ff;
-        }
+    get bl() {
+        return this.bx & 0x00ff;
+    },
+    set ch(val) {
+        this.cx &= 0x00ff;
+        this.cx |= val << 8;
+    },
+    get ch() {
+        return this.cx >> 8;
+    },
+    set cl(val) {
+        this.cx &= 0xff00;
+        this.cx += val;
+    },
+    get cl() {
+        return this.cx & 0x00ff;
+    },
+    set dh(val) {
+        this.dx &= 0x00ff;
+        this.dx |= val << 8;
+    },
+    get dh() {
+        return this.dx >> 8;
+    },
+    set dl (val) {
+        this.dx &= 0xff00;
+        this.dx += val;
+    },
+    get dl() {
+        return this.dx & 0x00ff;
     },
 
-    flags: this.FLAG_IF, // only interrupt flag is set at startup
+    flags: FLAG_IF, // only interrupt flag is set at startup
 
     regTable: [
         ['al', 'cl', 'dl', 'bl', 'ah', 'ch', 'dh', 'bh'], // w == 0
@@ -104,21 +117,22 @@ export const X86 = {
         ['es', 'cs', 'ss', 'ds'], // sregs when (mod == 11b)
     ],
 
-    BP: [], // array of breakpoints
+    BP: [] as number[][], // array of breakpoints
 
-    status: this.ST_STOPPED,
-    mode: this.MODE_NORMAL,
-    previousOp: null,
-    nextOpCode: null,
-    cpuConsole: null,
+    status: ST_STOPPED,
+    mode: MODE_NORMAL,
+    isColdboot: true,
+    previousOp: null as number,
+    nextOpCode: null as number,
+    cpuConsole: null as null,
 
     version: '0.3',
     cycles: 0,
 
     // resets the CPU
-    reset: function () {
+    reset() {
         console.log('reseting CPU ! Not much for now :)');
-        this.flags = this.FLAG_IF;
+        this.flags = FLAG_IF;
         this.ax = 0;
         this.bx = 0;
         this.cx = 0;
@@ -133,8 +147,8 @@ export const X86 = {
         this.cs = 0;
         this.ip = 0;
 
-        this.status = this.ST_STOPPED;
-        this.mode = this.MODE_NORMAL;
+        this.status = ST_STOPPED;
+        this.mode = MODE_NORMAL;
         this.previousOp = null;
         this.nextOpCode = null;
 
@@ -145,7 +159,7 @@ export const X86 = {
         this.ip = 0x0000;
     },
 
-    fetchNext: function () {
+    fetchNext() {
         // TODO: should be hardcoded for each instruction
         this.cycles++;
         // Console.log('Next Op: [IP=' + this.ip.toHex() + '] => ' + MMU.rbs(this.cs, this.ip).toHex());
@@ -153,7 +167,7 @@ export const X86 = {
     },
 
     // modrm needs w for proper reg: 0 for 8bit, 1 for 16bit ones
-    modrm: function (w) {
+    modrm: function (w: 0|1) {
         // get reg
         const modByte = this.ipnext(1);
         const reg = (modByte >> 3) & 0x7;
@@ -167,32 +181,28 @@ export const X86 = {
         };
     },
 
-    push: function (value) {
+    push(value: number) {
         this.sp -= 2;
         MMU.wws(X86.ss, X86.sp, value, true);
     },
 
-    pop: function (value) {
+    pop() {
         const value = MMU.rws(X86.ss, X86.sp);
         this.sp += 2;
         return value;
     },
 
-    loadbs: function (seg, addr, reg) {
+    loadbs(seg: number, addr: number, reg: REG_NAME_8) {
         if (arguments.length < 3) throw 'loadbs requires two arguments, called with only ' + arguments.length;
 
         try {
-            if (typeof this[reg] === 'function') {
-                this[reg](MMU.rbs(seg, addr));
-            } else {
-                this[reg] = MMU.rbs(seg, addr);
-            }
+            this[reg] = MMU.rbs(seg, addr);
         } catch (err) {
             console.log('unknown reg: ' + reg);
         }
     },
 
-    loadws: function (seg, addr, reg) {
+    loadws(seg: number, addr: number, reg: REG_NAME_16) {
         if (arguments.length < 3) throw 'loadws requires two arguments, called with only ' + arguments.length;
 
         try {
@@ -203,16 +213,16 @@ export const X86 = {
         }
     },
 
-    getregbs: function (reg, reg2) {
+    getregbs(reg: REG_NAME_8, reg2: REG_NAME_8) {
         return MMU.rbs(this[reg], this[reg2]);
     },
 
-    getregws: function (reg, reg2) {
+    getregws(reg: REG_NAME_16, reg2: REG_NAME_16) {
         return MMU.rws(this[reg], this[reg2]);
     },
 
     // returns the opadd
-    getOpAdd: function (rm, off, seg) {
+    getOpAdd(rm: number, off: number, seg: REG_NAME) {
         // console.log('getOpAdd: ' + rm + ', seg = ' + seg + ', off = ' + off.toHex());
         if (!rm) {
             throw 'getOpAdd: rm = 0 ! => bx << 4 + si ?!';
@@ -247,7 +257,7 @@ export const X86 = {
     },
 
     // test
-    getOpAdd1: function (rm, off, set) {
+    getOpAdd1(rm: number, off: number, set: any) {
         switch (rm) {
             case 6:
                 console.log('need to test me!');
@@ -261,56 +271,55 @@ export const X86 = {
     },
 
     // TODO: check boundaries !!
-    sreg: function (reg) {
+    sreg(reg: REG_NAME_S) {
         return this.regTable[2][reg];
     },
 
     // TODO: check boundaries !!
-    regw: function (reg) {
+    regw(reg: REG_NAME_16) {
         return this.regTable[1][reg];
     },
 
     // TODO: check boundaries !!
-    regb: function (reg) {
+    regb(reg: REG_NAME_8) {
         return this.regTable[0][reg];
     },
 
     // NEEDS testing !!
     // TODO: fix overflow !
-    incw: function (reg) {
-        X86[reg]++;
-        if (X86[reg] > 0xffff) X86[reg] = 0;
+    incw(reg: REG_NAME_16) {
+        this[reg]++;
+        if (this[reg] > 0xffff) {
+            this[reg] = 0;
+        }
     },
 
-    addwval: function (val, sum) {
-        if (val + sum > 0xffff) val = sum - (0x10000 - val);
-        else val += sum;
-
-        return val;
+    addwval(a: number, b: number) {
+        return (a + b > 0xffff) ? b - (0x10000 - a) : a + b;
     },
 
-    addw: function (reg, sum) {
-        if (this[reg] + sum > 0xffff) this[reg] = sum - (0x10000 - this[reg]);
-        else this[reg] += sum;
-
-        return this[reg];
+    addw(reg: REG_NAME_16, a: number) {
+        return this.addwval(this[reg], a);
     },
 
-    decw: function (reg) {
-        if (!this[reg]) this[reg] = 0xffff;
-        else this[reg]--;
+    decw(reg: REG_NAME_16) {
+        if (!this[reg]) {
+            this[reg] = 0xffff;
+        } else {
+            this[reg]--;
+        }
     },
 
-    subw: function (reg, dec) {
-        if (dec > this[reg]) this[reg] = 0x10000 - (dec - this[reg]);
-        else this[reg] -= dec;
+    subw(reg: REG_NAME_16, a: number) {
+        const b = this[reg];
+        this[reg] = (a > b) ? 0x10000 - (a - b) : b - a;
 
         return this[reg];
     },
 
     // upd counters
     // TODO: FLAGS ?!!
-    upidx: function () {
+    upidx() {
         if (this.getFlag(this.FLAG_DF)) {
             this.decw('di');
             this.decw('si');
@@ -322,7 +331,7 @@ export const X86 = {
 
     // upd counters
     // TODO: FLAGS ?!!
-    updi: function () {
+    updi() {
         if (this.getFlag(this.FLAG_DF)) {
             this.decw('di');
         } else {
@@ -330,7 +339,7 @@ export const X86 = {
         }
     },
 
-    upsi: function () {
+    upsi() {
         if (this.getFlag(this.FLAG_DF)) {
             this.decw('si');
         } else {
@@ -338,7 +347,7 @@ export const X86 = {
         }
     },
 
-    updiw: function () {
+    updiw() {
         if (this.getFlag(this.FLAG_DF)) {
             this.subw('di', 2);
         } else {
@@ -346,7 +355,7 @@ export const X86 = {
         }
     },
 
-    upsiw: function () {
+    upsiw() {
         if (this.getFlag(this.FLAG_DF)) {
             this.subw('si', 2);
         } else {
@@ -355,19 +364,19 @@ export const X86 = {
     },
 
     // returns the byte pointed by cs:ip+off
-    ipnext: function (off) {
+    ipnext(off: number) {
         return MMU.rbs(this.cs, this.ip + off);
     },
 
     // returns the word pointed by cs:ip+off
-    ipnextw: function (off) {
+    ipnextw(off: number) {
         return MMU.rws(this.cs, this.ip + off);
     },
 
-    executeOpCode: function (opCode) {
+    executeOpCode(opCode: number) {
         if (!(this.cycles % 55000)) {
             this.updateCpuConsole();
-            console.log(opCode.toHex());
+            // console.log(opCode.toHex());
         }
 
         try {
@@ -379,9 +388,9 @@ export const X86 = {
             // if (opCode === 128) {
             //     debugger;
             // }
-            OpCodes[opCode]();
+            OpCodesTable[opCode]();
         } catch (err) {
-            if (opCode == 0x8a)
+            if (opCode === 0x8a)
                 Graphics.println(
                     'unknown Multi OpCode: ' + MMU.rbs(X86.cs, X86.ip + 1).toHex() + ' [cycles=' + X86.cycles + ']',
                 );
@@ -404,32 +413,36 @@ export const X86 = {
         }
     },
 
-    addBP: function (cs, ip) {
+    addBP(cs: number, ip: number) {
         this.BP.push([cs, ip]);
         console.log('BP added to ' + cs.toHex() + ':' + ip.toHex() + ' (' + ((cs << 4) + ip) + ')');
     },
 
-    isBP: function () {
-        for (let i = 0; i < this.BP.length; i++) {
-            if (this.BP[i][0] == X86.cs && this.BP[i][1] == X86.ip) return true;
+    isBP() {
+        return this.BP.some(([segment, pointer]: number[]) => segment === this.cs && pointer === this.ip);
+        // for (let i = 0; i < this.BP.length; i++) {
+        //     if (this.BP[i][0] == X86.cs && this.BP[i][1] == X86.ip) return true;
+        // }
+        // return false;
+    },
+
+    listBP() {
+        if (!this.BP.length) {
+            console.log('No BP defined.');
+        } else {
+            this.BP.foreach(([segment, pointer]: number[], i: number) => {
+                console.log(i + '=' + segment.toHex() + ':' + pointer.toHex());
+            });
         }
-        return false;
     },
 
-    listBP: function () {
-        if (!this.BP.length) console.log('No BP defined.');
-        else
-            for (let i = 0; i < this.BP.length; i++) {
-                console.log(i + '=' + this.BP[i][0].toHex() + ':' + this.BP[i][1].toHex());
-            }
-    },
-
-    rmBP: function (i) {
-        console.log('BP ' + this.BP[i][0].toHex() + ':' + this.BP[i][1].toHex() + ' removed');
+    rmBP(i: number) {
+        const [segment, pointer] = this.BP[i];
+        console.log('BP ' + segment.toHex() + ':' + pointer.toHex() + ' removed');
         this.BP.slice(i, 1);
     },
 
-    updateCpuConsole: function () {
+    updateCpuConsole() {
         // print out register values
         this.cpuConsole.printAt(0, 4, this.ax.toHex());
         this.cpuConsole.printAt(0, 15, this.si.toHex());
@@ -479,7 +492,7 @@ export const X86 = {
         }
     },
 
-    runLoop: function () {
+    runLoop() {
         /*
             this.executeOpCode(this.nextOpCode);
             this.lastOp = this.nextOpCode;
@@ -524,10 +537,10 @@ export const X86 = {
     },
 
     // starts the execution of the instruction at cs:ip
-    start: function () {
+    start() {
         console.log('start');
 
-        X86.status = X86.ST_RUNNING;
+        this.status = ST_RUNNING;
 
         this.runLoop();
 
@@ -596,23 +609,26 @@ export const X86 = {
             */
     },
 
-    stop: function () {
-        this.status = this.ST_STOPPED;
+    stop() {
+        this.status = ST_STOPPED;
         Graphics.println('Execution STOPPED.');
         this.updateCpuConsole();
     },
 
-    setFlag: function (FLAG, test) {
-        if (test) this.flags |= FLAG;
-        // sets specified bit
-        else this.flags &= ~FLAG; // resets specified bit
+    setFlag(FLAG: number, isTest: boolean) {
+        if (isTest) {
+            this.flags |= FLAG;
+        } else {
+            // sets specified bit
+            this.flags &= ~FLAG; // resets specified bit
+        }
     },
 
-    getFlag: function (FLAG) {
+    getFlag(FLAG: number) {
         return this.flags & FLAG ? 1 : 0;
     },
 
-    init: function () {
+    init() {
         Graphics.println('Starting JSx86 v' + this.version);
         Graphics.println('Choose a program and press <GO> to start experimenting ! ;)');
 
@@ -624,16 +640,16 @@ export const X86 = {
         this.cpuConsole.printAt(4, 0, 'Status: Idle');
     },
 
-    saveCtx: function () {
-        X86.push(X86.flags);
-        X86.push(X86.cs);
-        X86.push(X86.ip);
+    saveCtx() {
+        this.push(this.flags);
+        this.push(this.cs);
+        this.push(this.ip);
     },
 
-    restoreCtx: function () {
-        X86.ip = X86.pop();
-        X86.cs = X86.pop();
-        X86.flags = X86.pop();
+    restoreCtx() {
+        this.ip = this.pop();
+        this.cs = this.pop();
+        this.flags = this.pop();
     },
 };
 
