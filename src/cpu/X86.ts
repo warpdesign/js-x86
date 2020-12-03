@@ -9,30 +9,78 @@
 
 */
 import { OpCodesTable } from './OpCodes';
-import { MMU } from './MMU'
+import { MMU } from './MMU';
+import { ToHex } from '../utils/ToHex';
 
-export type REG_NAME = 'ax'|'al'|'ah'|'bx'|'bh'|'bl'|'cx'|'ch'|'cl'|'dx'|'dh'|'dl'|'si'|'di'|'bp'|'sp'|'ds'|'cs'|'ss'|'ip';
-export type REG_NAME_16 = 'ax'|'bx'|'cx'|'dx'|'sp'|'bp'|'si'|'di';
-export type REG_NAME_8 = 'ah'|'al'|'bh'|'bl'|'ch'|'cl'|'dh'|'dl';
-export type REG_NAME_S = 'es'|'cs'|'ss'|'ds';
+export type REG_NAME =
+    | 'ax'
+    | 'al'
+    | 'ah'
+    | 'bx'
+    | 'bh'
+    | 'bl'
+    | 'cx'
+    | 'ch'
+    | 'cl'
+    | 'dx'
+    | 'dh'
+    | 'dl'
+    | 'si'
+    | 'di'
+    | 'bp'
+    | 'sp'
+    | 'ds'
+    | 'cs'
+    | 'ss'
+    | 'ip';
+export type REG_NAME_16 = 'ax' | 'bx' | 'cx' | 'dx' | 'sp' | 'bp' | 'si' | 'di';
+export type REG_NAME_8 = 'ah' | 'al' | 'bh' | 'bl' | 'ch' | 'cl' | 'dh' | 'dl';
+export type REG_NAME_S = 'es' | 'cs' | 'ss' | 'ds';
 
-const FLAG_CF = 0x0001,
-FLAG_PF = 0x0004,
-FLAG_AF = 0x0010,
-FLAG_ZF = 0x0040,
-FLAG_SF = 0x0080,
-FLAG_OF = 0x0800,
-FLAG_TF = 0x0100,
-FLAG_IF = 0x0200,
-FLAG_DF = 0x0400,
-FLAG_IOPL = 0x3000,
-FLAG_NT = 0x4000,
-ST_STOPPED = 0,
-ST_RUNNING = 1,
-ST_PAUSED = 2,
-MODE_NORMAL = 0,
-MODE_STEP = 1,
-MODE_STEP_OVER = 2;
+export interface CPU_DUMP {
+    ax: number;
+    bx: number;
+    cx: number;
+    dx: number;
+    cs: number;
+    ip: number;
+    ss: number;
+    si: number;
+    di: number;
+    ds: number;
+    es: number;
+    bp: number;
+    sp: number;
+    cf: number;
+    pf: number;
+    zf: number;
+    af: number;
+    sf: number;
+    of: number;
+    tf: number;
+    if: number;
+    df: number;
+    status: number;
+    mode: number;
+}
+
+export const FLAG_CF = 0x0001,
+    FLAG_PF = 0x0004,
+    FLAG_AF = 0x0010,
+    FLAG_ZF = 0x0040,
+    FLAG_SF = 0x0080,
+    FLAG_OF = 0x0800,
+    FLAG_TF = 0x0100,
+    FLAG_IF = 0x0200,
+    FLAG_DF = 0x0400,
+    FLAG_IOPL = 0x3000,
+    FLAG_NT = 0x4000,
+    ST_STOPPED = 0,
+    ST_RUNNING = 1,
+    ST_PAUSED = 2,
+    MODE_NORMAL = 0,
+    MODE_STEP = 1,
+    MODE_STEP_OVER = 2;
 
 // define(['MMU', 'Graphics', 'TextDisplay', 'Utils'], function(MMU, Graphics, TextDisplay, Utils) {
 export const X86 = {
@@ -71,7 +119,7 @@ export const X86 = {
         this.bx |= val << 8;
     },
     get bh() {
-        return this.bx >> 8;        
+        return this.bx >> 8;
     },
     set bl(val) {
         this.bx &= 0xff00;
@@ -101,7 +149,7 @@ export const X86 = {
     get dh() {
         return this.dx >> 8;
     },
-    set dl (val) {
+    set dl(val) {
         this.dx &= 0xff00;
         this.dx += val;
     },
@@ -167,7 +215,7 @@ export const X86 = {
     },
 
     // modrm needs w for proper reg: 0 for 8bit, 1 for 16bit ones
-    modrm: function (w: 0|1) {
+    modrm: function (w: 0 | 1) {
         // get reg
         const modByte = this.ipnext(1);
         const reg = (modByte >> 3) & 0x7;
@@ -295,7 +343,7 @@ export const X86 = {
     },
 
     addwval(a: number, b: number) {
-        return (a + b > 0xffff) ? b - (0x10000 - a) : a + b;
+        return a + b > 0xffff ? b - (0x10000 - a) : a + b;
     },
 
     addw(reg: REG_NAME_16, a: number) {
@@ -312,7 +360,7 @@ export const X86 = {
 
     subw(reg: REG_NAME_16, a: number) {
         const b = this[reg];
-        this[reg] = (a > b) ? 0x10000 - (a - b) : b - a;
+        this[reg] = a > b ? 0x10000 - (a - b) : b - a;
 
         return this[reg];
     },
@@ -392,18 +440,18 @@ export const X86 = {
         } catch (err) {
             if (opCode === 0x8a)
                 Graphics.println(
-                    'unknown Multi OpCode: ' + MMU.rbs(X86.cs, X86.ip + 1).toHex() + ' [cycles=' + X86.cycles + ']',
+                    'unknown Multi OpCode: ' + ToHex(MMU.rbs(X86.cs, X86.ip + 1)) + ' [cycles=' + X86.cycles + ']',
                 );
             else
                 Graphics.println(
                     'unknown OpCode: ' +
-                        opCode.toHex() +
+                        ToHex(opCode) +
                         ' [' +
                         err +
                         '] at ' +
-                        X86.cs.toHex() +
+                        ToHex(X86.cs) +
                         ':' +
-                        X86.ip.toHex() +
+                        ToHex(X86.ip) +
                         ' [cycles=' +
                         X86.cycles +
                         ']',
@@ -415,7 +463,7 @@ export const X86 = {
 
     addBP(cs: number, ip: number) {
         this.BP.push([cs, ip]);
-        console.log('BP added to ' + cs.toHex() + ':' + ip.toHex() + ' (' + ((cs << 4) + ip) + ')');
+        console.log('BP added to ' + ToHex(cs) + ':' + ToHex(ip) + ' (' + ((cs << 4) + ip) + ')');
     },
 
     isBP() {
@@ -431,65 +479,56 @@ export const X86 = {
             console.log('No BP defined.');
         } else {
             this.BP.foreach(([segment, pointer]: number[], i: number) => {
-                console.log(i + '=' + segment.toHex() + ':' + pointer.toHex());
+                console.log(i + '=' + ToHex(segment) + ':' + ToHex(pointer));
             });
         }
     },
 
     rmBP(i: number) {
         const [segment, pointer] = this.BP[i];
-        console.log('BP ' + segment.toHex() + ':' + pointer.toHex() + ' removed');
+        console.log('BP ' + ToHex(segment) + ':' + ToHex(pointer) + ' removed');
         this.BP.slice(i, 1);
     },
 
     updateCpuConsole() {
         // print out register values
-        this.cpuConsole.printAt(0, 4, this.ax.toHex());
-        this.cpuConsole.printAt(0, 15, this.si.toHex());
-        this.cpuConsole.printAt(0, 26, this.ds.toHex());
-        this.cpuConsole.printAt(0, 37, this.es.toHex());
-        this.cpuConsole.printAt(0, 48, this.ss.toHex());
-
-        // print out seg regs
-        this.cpuConsole.printAt(1, 4, this.bx.toHex());
-        this.cpuConsole.printAt(1, 15, this.di.toHex());
-        this.cpuConsole.printAt(1, 26, this.cs.toHex());
-        this.cpuConsole.printAt(1, 37, this.ip.toHex());
-
-        this.cpuConsole.printAt(2, 4, this.cx.toHex());
-        this.cpuConsole.printAt(2, 15, this.bp.toHex());
-
-        // flags
-        this.cpuConsole.printAt(2, 23, this.getFlag(this.FLAG_CF));
-        this.cpuConsole.printAt(2, 27, this.getFlag(this.FLAG_ZF));
-        this.cpuConsole.printAt(2, 31, this.getFlag(this.FLAG_SF));
-
-        this.cpuConsole.printAt(2, 35, this.getFlag(this.FLAG_OF));
-        this.cpuConsole.printAt(2, 39, this.getFlag(this.FLAG_AF));
-        this.cpuConsole.printAt(2, 43, this.getFlag(this.FLAG_PF));
-        this.cpuConsole.printAt(2, 47, this.getFlag(this.FLAG_DF));
-        this.cpuConsole.printAt(2, 51, this.getFlag(this.FLAG_IF));
-        this.cpuConsole.printAt(2, 55, this.getFlag(this.FLAG_TF));
-
-        this.cpuConsole.printAt(3, 4, this.dx.toHex());
-        this.cpuConsole.printAt(3, 15, this.sp.toHex());
-
-        switch (this.status) {
-            case this.ST_RUNNING:
-                this.cpuConsole.printAt(4, 8, 'Running                   ');
-                break;
-
-            case this.ST_PAUSED:
-                this.cpuConsole.printAt(4, 8, 'Press <F9> to continue...');
-                break;
-
-            case this.ST_STOPPED:
-                this.cpuConsole.printAt(4, 8, 'Stopped                    ');
-                break;
-
-            default:
-                this.cpuConsole.printAt(4, 8, 'Idle                    ');
-        }
+        // this.cpuConsole.printAt(0, 4, this.ax.toHex());
+        // this.cpuConsole.printAt(0, 15, this.si.toHex());
+        // this.cpuConsole.printAt(0, 26, this.ds.toHex());
+        // this.cpuConsole.printAt(0, 37, this.es.toHex());
+        // this.cpuConsole.printAt(0, 48, this.ss.toHex());
+        // // print out seg regs
+        // this.cpuConsole.printAt(1, 4, this.bx.toHex());
+        // this.cpuConsole.printAt(1, 15, this.di.toHex());
+        // this.cpuConsole.printAt(1, 26, this.cs.toHex());
+        // this.cpuConsole.printAt(1, 37, this.ip.toHex());
+        // this.cpuConsole.printAt(2, 4, this.cx.toHex());
+        // this.cpuConsole.printAt(2, 15, this.bp.toHex());
+        // // flags
+        // this.cpuConsole.printAt(2, 23, this.getFlag(this.FLAG_CF));
+        // this.cpuConsole.printAt(2, 27, this.getFlag(this.FLAG_ZF));
+        // this.cpuConsole.printAt(2, 31, this.getFlag(this.FLAG_SF));
+        // this.cpuConsole.printAt(2, 35, this.getFlag(this.FLAG_OF));
+        // this.cpuConsole.printAt(2, 39, this.getFlag(this.FLAG_AF));
+        // this.cpuConsole.printAt(2, 43, this.getFlag(this.FLAG_PF));
+        // this.cpuConsole.printAt(2, 47, this.getFlag(this.FLAG_DF));
+        // this.cpuConsole.printAt(2, 51, this.getFlag(this.FLAG_IF));
+        // this.cpuConsole.printAt(2, 55, this.getFlag(this.FLAG_TF));
+        // this.cpuConsole.printAt(3, 4, this.dx.toHex());
+        // this.cpuConsole.printAt(3, 15, this.sp.toHex());
+        // switch (this.status) {
+        //     case this.ST_RUNNING:
+        //         this.cpuConsole.printAt(4, 8, 'Running                   ');
+        //         break;
+        //     case this.ST_PAUSED:
+        //         this.cpuConsole.printAt(4, 8, 'Press <F9> to continue...');
+        //         break;
+        //     case this.ST_STOPPED:
+        //         this.cpuConsole.printAt(4, 8, 'Stopped                    ');
+        //         break;
+        //     default:
+        //         this.cpuConsole.printAt(4, 8, 'Idle                    ');
+        // }
     },
 
     runLoop() {
@@ -524,12 +563,12 @@ export const X86 = {
             // halt execution if in step mode
             if (this.mode === this.MODE_STEP || this.isBP()) {
                 this.updateCpuConsole();
-                Graphics.println('Waiting to Execute: ' + this.nextOpCode.toHex() + ' <1=cont, 2=step, 3=step over>');
+                Graphics.println('Waiting to Execute: ' + ToHex(this.nextOpCode) + ' <1=cont, 2=step, 3=step over>');
                 return;
             } else if (this.mode === this.MODE_STEP_OVER && this.lastOp != this.nextOpCode) {
                 // only exit if we're not executing REPE stuff in step over
                 this.updateCpuConsole();
-                Graphics.println('Waiting to Execute: ' + this.nextOpCode.toHex() + ' <1=cont, 2=step, 3=step over>');
+                Graphics.println('Waiting to Execute: ' + ToHex(this.nextOpCode) + ' <1=cont, 2=step, 3=step over>');
                 return;
             }
             setTimeout(this.runLoop.bind(this), 0);
