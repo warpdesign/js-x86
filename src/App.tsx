@@ -1,9 +1,20 @@
 import React, { useEffect } from 'react';
 import { MMU } from '$src/cpu/MMU';
 import { FetchBinary } from '$src/utils/FetchBinary';
+import Terminal from '$src/Terminal';
+import styles from 'xterm/css/xterm.css';
+
+console.log(styles.toString());
 
 const init = async () => {
     console.log('[init]');
+    const term = new Terminal(document.getElementById('terminal'), {
+        cols: 60,
+        rows: 5,
+        disableStdin: true,
+        cursorWidth: 1,
+    });
+
     MMU.init();
 
     // MemViewer.init('#viewer');
